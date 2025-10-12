@@ -1,0 +1,175 @@
+services:
+  traefik:
+    image: traefik:v3.5.0
+    ports:
+      - '80:80'
+      - '443:443'
+      # - '8080:8080'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./_config/traefik:/etc/traefik:ro
+    networks:
+      - snowflake-network
+    restart: unless-stopped
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.traefik.rule=Host(`traefik.localhost`)'
+      - 'traefik.http.services.traefik.loadbalancer.server.port=8080'
+
+  bastion:
+    build:
+      context: .
+      dockerfile: bastion.Dockerfile
+    ports:
+      - '2222:22' # Map host port 2222 to container port
+    networks:
+      - snowflake-network
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17.5-alpine3.22
+    # ports:
+    #   - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+    env_file: .env
+    networks:
+      - snowflake-network
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 1m
+      timeout: 30s
+      start_period: 30s
+      retries: 5
+
+  loki:
+    image: grafana/loki:3.5.3
+    # ports:
+    #   - '3100:3100'
+    volumes:
+      - ./_config/loki:/etc/loki:ro
+      - loki_data:/loki
+    command: -config.file=/etc/loki/loki-config.yaml
+    networks:
+      - snowflake-network
+    restart: unless-stopped
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.loki.rule=Host(`loki.localhost`)'
+      - 'traefik.http.services.loki.loadbalancer.server.port=3100'
+
+  prometheus:
+    image: prom/prometheus:v3.6.0
+    # ports:
+    #   - '9090:9090'
+    volumes:
+      - ./_config/prometheus:/etc/prometheus:ro
+    command:
+      - --web.enable-remote-write-receiver
+      - --config.file=/etc/prometheus/prometheus.yml
+    networks:
+      - snowflake-network
+    restart: unless-stopped
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.prometheus.rule=Host(`prom.localhost`)'
+      - 'traefik.http.services.prometheus.loadbalancer.server.port=9090'
+
+  alloy:
+    image: grafana/alloy:v1.11.2
+    # ports:
+    #   - 4317:4317
+    #   - 4318:4318
+    #   - 12345:12345
+    volumes:
+      - ./_config/alloy:/etc/alloy:ro
+      - alloy_data:/var/lib/alloy/data
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    networks:
+      - snowflake-network
+    restart: unless-stopped
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.alloy.rule=Host(`alloy.localhost`)'
+      - 'traefik.http.services.alloy.loadbalancer.server.port=12345'
+
+  grafana:
+    image: grafana/grafana:12.1.0
+    # ports:
+    #   - '3000:3000'
+    networks:
+      - snowflake-network
+    restart: unless-stopped
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.grafana.rule=Host(`grafana.localhost`)'
+      - 'traefik.http.services.grafana.loadbalancer.server.port=3000'
+
+  openfga_migrate:
+    image: openfga/openfga:v1.9.5
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: migrate
+    env_file: .env
+    networks:
+      - snowflake-network
+
+  openfga:
+    image: openfga/openfga:v1.9.5
+    depends_on:
+      openfga_migrate:
+        condition: service_completed_successfully
+    command: run
+    # ports:
+    #   - '2112:2112'
+    #   - '3001:3000'
+    #   - '8080:8080'
+    #   - '8081:8081'
+    env_file: .env
+    networks:
+      - snowflake-network
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', '/usr/local/bin/grpc_health_probe', '-addr=openfga:8081']
+      interval: 1m
+      timeout: 30s
+      start_period: 30s
+      retries: 3
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.openfga.rule=Host(`openfga.localhost`)'
+      - 'traefik.http.services.openfga.loadbalancer.server.port=3000'
+
+  redis:
+    image: redis:8.2.1-alpine3.22
+    # ports:
+    #   - '6379:6379'
+    command: --save 60 1
+    volumes:
+      - redis_data:/data
+    networks:
+      - snowflake-network
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli ping | grep PONG']
+      interval: 1m
+      timeout: 30s
+      start_period: 30s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:
+  loki_data:
+  alloy_data:
+
+networks:
+  snowflake-network:
+    driver: bridge

@@ -1,0 +1,29 @@
+otelcol.receiver.otlp "otlpreceiver" {
+  grpc {
+    endpoint = "0.0.0.0:4317"
+  }
+
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+
+  output {
+    metrics = [otelcol.processor.batch.otlpbatch.input]
+  }
+}
+
+otelcol.processor.batch "otlpbatch" {
+  output {
+    metrics = [otelcol.exporter.prometheus.promexporter.input]
+  }
+}
+
+otelcol.exporter.prometheus "promexporter" {
+  forward_to = [prometheus.remote_write.promwriter.receiver]
+}
+
+prometheus.remote_write "promwriter" {
+  endpoint {
+    url = "http://prometheus:9090/api/v1/write"
+  }
+}
