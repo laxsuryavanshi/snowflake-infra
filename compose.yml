@@ -1,6 +1,6 @@
 services:
   traefik:
-    image: traefik:v3.5.0
+    image: traefik:v3.6.6
     ports:
       - '80:80'
       - '443:443'
@@ -27,7 +27,7 @@ services:
     restart: unless-stopped
 
   postgres:
-    image: postgres:17.5-alpine3.22
+    image: postgres:18.1-alpine3.23
     # ports:
     #   - '5432:5432'
     volumes:
@@ -45,7 +45,7 @@ services:
       retries: 5
 
   loki:
-    image: grafana/loki:3.5.3
+    image: grafana/loki:3.5.9
     # ports:
     #   - '3100:3100'
     volumes:
@@ -61,7 +61,7 @@ services:
       - 'traefik.http.services.loki.loadbalancer.server.port=3100'
 
   prometheus:
-    image: prom/prometheus:v3.6.0
+    image: prom/prometheus:v3.8.1
     # ports:
     #   - '9090:9090'
     volumes:
@@ -79,7 +79,7 @@ services:
       - 'traefik.http.services.prometheus.loadbalancer.server.port=9090'
 
   alloy:
-    image: grafana/alloy:v1.11.2
+    image: grafana/alloy:v1.12.1
     # ports:
     #   - 4317:4317
     #   - 4318:4318
@@ -101,7 +101,7 @@ services:
       - 'traefik.http.services.alloy.loadbalancer.server.port=12345'
 
   grafana:
-    image: grafana/grafana:12.1.0
+    image: grafana/grafana:12.3.1
     # ports:
     #   - '3000:3000'
     networks:
@@ -113,7 +113,7 @@ services:
       - 'traefik.http.services.grafana.loadbalancer.server.port=3000'
 
   openfga_migrate:
-    image: openfga/openfga:v1.9.5
+    image: openfga/openfga:v1.11.2
     depends_on:
       postgres:
         condition: service_healthy
@@ -123,7 +123,7 @@ services:
       - snowflake-network
 
   openfga:
-    image: openfga/openfga:v1.9.5
+    image: openfga/openfga:v1.11.2
     depends_on:
       openfga_migrate:
         condition: service_completed_successfully
@@ -149,7 +149,7 @@ services:
       - 'traefik.http.services.openfga.loadbalancer.server.port=3000'
 
   redis:
-    image: redis:8.2.1-alpine3.22
+    image: redis:8.4.0-alpine3.22
     # ports:
     #   - '6379:6379'
     command: --save 60 1
