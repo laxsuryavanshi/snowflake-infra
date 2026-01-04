@@ -66,6 +66,7 @@ services:
     #   - '9090:9090'
     volumes:
       - ./_config/prometheus:/etc/prometheus:ro
+      - prometheus_data:/prometheus
     command:
       - --web.enable-remote-write-receiver
       - --config.file=/etc/prometheus/prometheus.yml
@@ -74,7 +75,7 @@ services:
     restart: unless-stopped
     labels:
       - 'traefik.enable=true'
-      - 'traefik.http.routers.prometheus.rule=Host(`prom.localhost`)'
+      - 'traefik.http.routers.prometheus.rule=Host(`prometheus.localhost`)'
       - 'traefik.http.services.prometheus.loadbalancer.server.port=9090'
 
   alloy:
@@ -169,6 +170,7 @@ volumes:
   redis_data:
   loki_data:
   alloy_data:
+  prometheus_data:
 
 networks:
   snowflake-network:
