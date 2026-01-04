@@ -1,0 +1,12 @@
+[project]
+name = "snowflake-infra"
+version = "0.0.1"
+description = "<description goes here>"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
+
+[tool.uv.workspace]
+members = [
+    "awsiac",
+]

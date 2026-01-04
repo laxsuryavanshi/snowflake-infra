@@ -1,0 +1,15 @@
+[project]
+name = "awsiac"
+version = "0.0.1"
+description = "<description goes here>"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "aws-cdk-lib>=2.233.0",
+    "constructs>=10.4.4",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
